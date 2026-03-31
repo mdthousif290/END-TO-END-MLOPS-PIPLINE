@@ -31,7 +31,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install dvc
+          pip install dvc kaggle
+
+      - name: Download Telco churn dataset from Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          if [[ -z "$KAGGLE_USERNAME" || -z "$KAGGLE_KEY" ]]; then
+            echo "Kaggle credentials are not set. Please add KAGGLE_USERNAME and KAGGLE_KEY as repository secrets." >&2
+            exit 1
+          fi
+          mkdir -p ~/.kaggle
+          cat > ~/.kaggle/kaggle.json <<EOF
+{"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
+EOF
+          chmod 600 ~/.kaggle/kaggle.json
+          mkdir -p data/raw
+          kaggle datasets download -d blastchar/telco-customer-churn -f WA_Fn-UseC_-Telco-Customer-Churn.csv -p data/raw --force
+          unzip -o data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv.zip -d data/raw
+          mv data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv data/raw/data.csv
+          rm -f data/raw/*.zip
 
       - name: Run DVC pipeline
         run: |
