@@ -1,62 +1,53 @@
-name: CI
+name: MLOps Pipeline
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main ]
   pull_request:
-    branches: [main, master]
+    branches: [ main ]
 
 jobs:
-  build:
+  train-and-validate:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install dvc kaggle
 
-      - name: Download Telco churn dataset from Kaggle
+      - name: Install Kaggle and download dataset
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
         run: |
-          if [[ -z "$KAGGLE_USERNAME" || -z "$KAGGLE_KEY" ]]; then
-            echo "Kaggle credentials are not set. Please add KAGGLE_USERNAME and KAGGLE_KEY as repository secrets." >&2
-            exit 1
-          fi
-          mkdir -p ~/.kaggle
-          cat > ~/.kaggle/kaggle.json <<EOF
-{"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
-EOF
-          chmod 600 ~/.kaggle/kaggle.json
+          pip install kaggle
           mkdir -p data/raw
-          kaggle datasets download -d blastchar/telco-customer-churn -f WA_Fn-UseC_-Telco-Customer-Churn.csv -p data/raw --force
-          unzip -o data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv.zip -d data/raw
-          mv data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv data/raw/data.csv
-          rm -f data/raw/*.zip
-
-      - name: Run DVC pipeline
-        run: |
-          dvc repro --force
+          kaggle datasets download -d blastchar/telco-customer-churn
+          unzip telco-customer-churn.zip -d data/raw/
+          mv "data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv" data/raw/data.csv
 
       - name: Run unit tests
-        run: |
-          pytest tests/ -v
+        run: pytest tests/ -v
+
+      - name: Run data ingestion
+        run: python src/ingest.py
+
+      - name: Train model
+        run: python src/train.py
+
+      - name: Run drift validation
+        run: python src/validate.py
+
+      - name: Upload drift report
+        uses: actions/upload-artifact@v3
+        with:
+          name: drift-report
+          path: reports/drift.html
