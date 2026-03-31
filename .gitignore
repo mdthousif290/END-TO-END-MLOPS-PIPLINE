@@ -1,18 +1,26 @@
+# Python
 venv/
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.pyd
-*.swp
-.DS_Store
-.ipynb_checkpoints
-.idea/
+.env
+
+# MLflow
+mlruns/
+mlflow.db
+
+# DVC
+/tmp/
+
+# Data (too large for GitHub)
+data/raw/
+data/processed/
+
+# Models
+models/
+
+# Reports
+reports/
+
+# VS Code
 .vscode/
-
-# DVC cache and local config
-.dvc/cache/
-.dvc/tmp/
-
-# Notebook outputs
-*.sqlite
-*.db
